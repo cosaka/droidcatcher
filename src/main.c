@@ -4,21 +4,26 @@
 #include <unistd.h>
 
 #include <sys/wait.h>
+#include <sys/stat.h>
 
 #include <android/log.h>
 
 /* Macros */
 
 #define LOG_TAG		"droidcacther"
-#define ALOG_I(...)	__android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define ALOG_W(...)	__android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
+#define ALOG_I(...)	__android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define ALOG_D(...)	__android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
-#define LOG_OUT_MAIN	"/data/bin/main.log"
-#define LOG_OUT_SYSTEM	"/data/bin/system.log"
-#define LOG_OUT_EVENTS	"/data/bin/events.log"
-#define LOG_OUT_RADIO	"/data/bin/radio.log"
-#define LOG_OUT_CRASH	"/data/bin/crash.log"
-#define LOG_OUT_KMSG	"/data/bin/mksg"
+// TODO: to be dynamic
+#define LOG_OUT_DIR		"/data/droidcatcher"
+
+#define LOG_OUT_MAIN	(LOG_OUT_DIR"/main.log")
+#define LOG_OUT_SYSTEM	(LOG_OUT_DIR"/system.log")
+#define LOG_OUT_EVENTS	(LOG_OUT_DIR"/events.log")
+#define LOG_OUT_RADIO	(LOG_OUT_DIR"/radio.log")
+#define LOG_OUT_CRASH	(LOG_OUT_DIR"/crash.log")
+#define LOG_OUT_KMSG	(LOG_OUT_DIR"/mksg")
 
 /* Functions */
 
@@ -32,7 +37,7 @@ void cleanup_stored(void)
 	remove(LOG_OUT_KMSG);
 }
 
-void cleanup_buffers(void)
+void flush_buffers(void)
 {
 	pid_t pid_cleanup = fork();
 	if ( pid_cleanup == 0 ) {
@@ -50,11 +55,24 @@ int main()
 {
 	ALOG_I("Hello droidcacther!!!");
 
-	// remove old logs
-	cleanup_stored();
+	// directory where to store logs
+	struct stat st = {};
+	if (stat(LOG_OUT_DIR, &st)) {
+		ALOG_I("Directory \"%s\" does not exist; Creating...", LOG_OUT_DIR);
+		mkdir(LOG_OUT_DIR, 0750);
+	}
+	else {
+		// TEMP: remove previous logs
+		ALOG_I("Cleaning up directory \"%s\"", LOG_OUT_DIR);
+		cleanup_stored();
 
+		// TODO: store previous logs to a sequeced dir
+	}
+
+	// TODO: check a wiser way to do it
 	// flush current Android log buffers
-	cleanup_buffers();
+	ALOG_I("Flushing Android Logger buffers");
+	flush_buffers();
 
 	// main log
 	pid_t pid_main = fork();
@@ -98,7 +116,8 @@ int main()
 		}
 	}
 
-#if 0 // still not working
+	// TODO: make it work...
+#if 0
 	// kernel log
 	pid_t pid_kmsg = fork();
 	if ( pid_kmsg == 0 ) {
@@ -107,7 +126,7 @@ int main()
 	}
 #endif
 
-	ALOG_I("Threads running...");
+	ALOG_I("Catcher threads running...");
 
 	for (;;) {}
 
